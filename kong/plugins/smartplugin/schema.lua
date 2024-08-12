@@ -1,12 +1,6 @@
 local typedefs = require "kong.db.schema.typedefs"
 
-
-
-
 local PLUGIN_NAME = "smartplugin"
-
-
-
 
 local schema = {
   name = PLUGIN_NAME,
@@ -23,8 +17,4 @@ local schema = {
   },
 }
 
-
 return schema
-
-
-
