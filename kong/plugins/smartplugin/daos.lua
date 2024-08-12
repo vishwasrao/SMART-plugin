@@ -1,22 +1,43 @@
 local typedefs = require "kong.db.schema.typedefs"
 
-
-return {
-  {
+local smart_apps = {
     name = "smart_apps",
-    primary_key = { "appName", "issuer" },
+    primary_key = { "app_name", "issuer" },
     fields = {
-      { appName = { type = "string", required = true}, },
+      { app_name = { type = "string", required = true}, },
       { issuer = { type = "string", required = true}, },
-      { appLaunchUrl = { type = "string"}, },
-      { appRedirectUrl = { type = "string"}, },
+      { app_launch_url = { type = "string"}, },
+      { app_redirect_url = { type = "string"}, },
       { scope = { type = "string"}, },
-      { clientId = { type = "string"}, },
-      { clientSecret = { type = "string"}, },
-      { clinicalData = { type = "string"}, },
+      { client_id = { type = "string"}, },
+      { client_secret = { type = "string"}, },
       { created_at = typedefs.auto_timestamp_s },
       { updated_at = typedefs.auto_timestamp_s },
     },
-  },
 }
 
+local smart_launches = {
+    name = "smart_launches",
+    primary_key = { "session_id" },
+    fields = {
+      { session_id = { type = "string", required = true }, },
+      { client_id = { type = "string", required = true }, },
+      { authorization_code = { type = "string", }, },
+      { access_token = { type = "string" }, },
+      { refresh_token = { type = "string" }, },
+      { id_token = { type = "string" }, },
+      { token_type = { type = "string" }, },
+      { scope = { type = "string" }, },
+      { patient = { type = "string" }, },
+      { encounter = { type = "string" }, },
+      { practitioner = { type = "string" }, },
+      { appContext = { type = "string" }, },
+      { created_at = typedefs.auto_timestamp_s },
+      { updated_at = typedefs.auto_timestamp_s },
+    },
+}
+
+return {
+  smart_apps,
+  smart_launches,
+}
