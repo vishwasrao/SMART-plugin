@@ -24,7 +24,13 @@ return {
 
       CREATE TABLE IF NOT EXISTS "smart_launches" (
         "session_id"        TEXT                         PRIMARY KEY,
-        "client_id"         TEXT                    NOT NULL,
+        "client_id"         TEXT                         NOT NULL,
+        "client_secret"     TEXT,
+        "app_name"          TEXT                         NOT NULL,
+        "app_launch_url"    TEXT,
+        "app_redirect_url" TEXT,
+        "token_endpoint_url" TEXT,
+        "fhir_server_url"   TEXT                         NOT NULL,
         "authorization_code" TEXT,
         "access_token"      TEXT,
         "refresh_token"     TEXT,
@@ -43,6 +49,7 @@ return {
       BEGIN
         CREATE INDEX IF NOT EXISTS "smart_launches_session_id_idx" ON "smart_launches" ("session_id");
         CREATE INDEX IF NOT EXISTS "smart_launches_client_id_idx" ON "smart_launches" ("client_id");
+         CREATE INDEX IF NOT EXISTS "smart_launches_fhir_server_url_idx" ON "smart_launches" ("fhir_server_url");
       EXCEPTION WHEN UNDEFINED_COLUMN THEN
         -- Do nothing, accept existing state
       END$$;
