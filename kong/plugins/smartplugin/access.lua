@@ -234,6 +234,11 @@ local function authcallback(conf)
         return kong.response.exit(500, { message = "Error updating data in smart_launches table" })
         end
         kong.log.debug("Data updated in smart_launches table: ", update_res)
+
+        -- Redirect to app launch URL
+        kong.response.set_header("Location", smart_launches_details.app_launch_url)
+        kong.response.set_header("Set-Cookie", "vishwasCookie=" .. smart_launches_details.session_id .. "; Secure; Max-Age=3600; HttpOnly")
+        kong.response.exit(302)
     -- Continue with the rest of the code
 end
 
