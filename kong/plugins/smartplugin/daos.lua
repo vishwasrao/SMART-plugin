@@ -22,6 +22,12 @@ local smart_launches = {
     fields = {
       { session_id = { type = "string", required = true }, },
       { client_id = { type = "string", required = true }, },
+      { client_secret = { type = "string" }, },
+      { app_name = { type = "string", required = true }, },
+      { app_launch_url = { type = "string" }, },
+      { app_redirect_url = { type = "string" }, },
+      { token_endpoint_url = { type = "string" }, },
+      { fhir_server_url = { type = "string", required = true }, },
       { authorization_code = { type = "string", }, },
       { access_token = { type = "string" }, },
       { refresh_token = { type = "string" }, },
