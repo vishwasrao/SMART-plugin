@@ -211,9 +211,13 @@ local function authcallback(conf)
 
         -- Decode id_token to get the user details, get fhirUser from it
         local jwt_obj = jwt_decoder:new(id_token)
-        kong.log.debug("id_token: ", jwt_obj)
-        --local user_details = jwt_obj:parse()
-        --local fhirUser = user_details.fhirUser
+        local fhirUser = jwt_obj.claims.fhirUser
+        local userType, userId = string.match(fhirUser, "([^/]+)/([^/]+)")
+        kong.log.debug("User Type: ", userType)
+        kong.log.debug("User ID: ", userId)
+
+        kong.log.inspect(jwt_obj)
+        --kong.log.inspect(fhirUser)
 
         -- Store all these details in smart_launches table using sessionId
         local smart_launches = kong.db.smart_launches
