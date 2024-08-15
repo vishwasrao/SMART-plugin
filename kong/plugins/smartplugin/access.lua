@@ -12,6 +12,7 @@ local _M = {}
 
 local SLASH = string_byte("/")
 local ERROR = "error"
+local COOKIE_NAME = "session_id"
 
 
 local function launch(conf)
@@ -26,14 +27,12 @@ local function launch(conf)
     local iss = query_params["iss"]
 
     local launch = query_params["launch"]
+    kong.log("App launch started for app_name: ", app_name , " and issuer: ", iss)
 
     if not app_name or not iss then
         kong.log.err("Missing app_name or iss in the request")
         return kong.response.exit(400, { message = "Missing app_name or iss in the request" })
     end
-
-    kong.log.debug("Received app_name: ", app_name)
-    kong.log.debug("Received iss: ", iss)
 
     --Load the app details from the database
     local appDetails, err = kong.db.smart_apps:select({ app_name = app_name, issuer = iss })
@@ -93,6 +92,9 @@ local function launch(conf)
     local sessionId = random_string()
     kong.log.debug("Session ID: ", sessionId)
 
+    --ToDo: Move this part to plugin:log section so that we can strore that in DB in async mode and will not block the request
+    -- We can use kong.ctx.plugin table this data which can be accessed in plugin:log section
+    -- Referece: https://docs.konghq.com/gateway/latest/plugin-development/pdk/kong.ctx/
     -- Insert data into smart_launches table
     local smart_launches = kong.db.smart_launches
     local data = {
@@ -219,7 +221,9 @@ local function authcallback(conf)
         kong.log.inspect(jwt_obj)
         --kong.log.inspect(fhirUser)
         
-        
+        --ToDo: Move this part to plugin:log section so that we can strore that in DB in async mode and will not block the request
+        -- We can use kong.ctx.plugin table this data which can be accessed in plugin:log section
+        -- Referece: https://docs.konghq.com/gateway/latest/plugin-development/pdk/kong.ctx/
         -- Store all these details in smart_launches table using sessionId
         local smart_launches = kong.db.smart_launches
         local update_data = {
@@ -242,13 +246,72 @@ local function authcallback(conf)
         end
         kong.log.debug("Data updated in smart_launches table: ", update_res)
 
+        kong.log("App launch finished for app_name: ", smart_launches_details.app_name, " and issuer: ", smart_launches_details.fhir_server_url, " with sessionId: ", state)
         -- Redirect to app launch URL
         kong.response.set_header("Location", smart_launches_details.app_launch_url)
-        kong.response.set_header("Set-Cookie", "vishwasCookie=" .. smart_launches_details.session_id .. "; Secure; Max-Age=3600; HttpOnly")
+        kong.response.set_header("Set-Cookie", COOKIE_NAME .. "=" .. smart_launches_details.session_id .. "; Secure; Max-Age=3600; HttpOnly")
         kong.response.exit(302)
     -- Continue with the rest of the code
 end
 
+local function clinicaldata(conf)
+    kong.log("SMART plugin: clinicaldata handler")
+    -- Get the cookie value from the Authorization header
+    local auth_header = kong.request.get_header("Authorization")
+    local cookie_value = string.match(auth_header, "Bearer%s+(.+)")
+    if not cookie_value then
+        return kong.response.exit(401, { message = "Invalid Authorization header" })
+    end
+
+    -- Get data from smart_launches table using session_id
+    local session_id = cookie_value
+    local smart_launches = kong.db.smart_launches
+    local smart_launches_details, err = smart_launches:select({ session_id = session_id })
+    if err then
+        kong.log.err("Error fetching data from smart_launches table: ", err)
+        return kong.response.exit(500, { message = "Error fetching data from smart_launches table" })
+    end
+
+    -- Check if data exists
+    if not smart_launches_details then
+        kong.log.err("Data not found for sessionId: ", session_id)
+        return kong.response.exit(404, { message = "Data not found" })
+    end
+    --Print the smart_launches details
+    kong.log.inspect("Data fetched from smart_launches table: ", smart_launches_details)
+
+    -- Get resource names from request body
+    local resource_names = {
+        "Patient"
+        --"Practitioner",
+        --"Condition"
+    }
+
+    -- Get fhir_server_url, access_token, and patient_id from smart_launches_details
+    local fhir_server_url = smart_launches_details.fhir_server_url
+    local access_token = smart_launches_details.access_token
+    local patient_id = smart_launches_details.patient
+
+    -- Iterate over resource names
+    for _, resource_name in ipairs(resource_names) do
+        -- Send GET request to fhir_server_url + '/' + resource_name + '/' + patient_id
+        local httpc = http.new()
+        local res, err = httpc:request_uri(fhir_server_url .. '/' .. resource_name .. '/' .. patient_id, {
+            method = "GET",
+            headers = {
+                ["Authorization"] = "Bearer " .. access_token
+            }
+        })
+
+        if not res then
+            kong.log.err("Error sending GET request to FHIR server: ", err)
+            return kong.response.exit(500, { message = "Error sending GET request to FHIR server" })
+        end
+
+        -- Print the response
+        kong.log.debug("Received response from FHIR server for " .. resource_name .. ": ", res.body)
+    end
+end
 local function invalid_method(endpoint_name, realm)
     return {
         status = 405,
@@ -274,6 +337,7 @@ function _M.execute(conf)
 
     local realm = conf.realm and fmt(' realm="%s"', conf.realm) or ''
 
+    -- SMART on FHIR auth initiation
     if string_find(path, "/launch/([^/]+)") then
         if kong.request.get_method() ~= "GET" then
             local err = invalid_method("launch", realm)
@@ -283,6 +347,7 @@ function _M.execute(conf)
         return launch(conf)
     end
 
+    -- SMART on FHIR auth callback
     if string_find(path, "/authcallback", has_end_slash and -14 or -13, true) then
         if kong.request.get_method() ~= "GET" then
             local err = invalid_method("authcallback", realm)
@@ -290,6 +355,16 @@ function _M.execute(conf)
         end
 
         return authcallback(conf)
+    end
+
+    -- Getting clinical data from FHIR server
+    if string_find(path, "/clinicaldata", has_end_slash and -14 or -13, true) then
+        if kong.request.get_method() ~= "POST" then
+            local err = invalid_method("clinicaldata", realm)
+            return kong.response.exit(err.status, err.message, err.headers)
+        end
+
+        return clinicaldata(conf)
     end
 end
 
