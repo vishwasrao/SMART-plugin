@@ -211,26 +211,29 @@ local function authcallback(conf)
 
         -- Decode id_token to get the user details, get fhirUser from it
         local jwt_obj = jwt_decoder:new(id_token)
-        local fhirUser = jwt_obj.claims.fhirUser
-        local userType, userId = string.match(fhirUser, "([^/]+)/([^/]+)")
-        kong.log.debug("User Type: ", userType)
-        kong.log.debug("User ID: ", userId)
+        local fhir_user = jwt_obj.claims.fhirUser
+        local user_type, user_id = string.match(fhir_user, "([^/]+)/([^/]+)")
+        kong.log.debug("User Type: ", user_type)
+        kong.log.debug("User ID: ", user_id)
 
         kong.log.inspect(jwt_obj)
         --kong.log.inspect(fhirUser)
-
+        
+        
         -- Store all these details in smart_launches table using sessionId
         local smart_launches = kong.db.smart_launches
         local update_data = {
+        authorization_code  = code,
         access_token = access_token,
         token_type = token_type,
-        --expires_in = expires_in,
+        expires_in = expires_in,
         patient = patient,
         refresh_token = refresh_token,
         id_token = id_token,
         encounter = encounter,
         location = location,
-        --fhirUser = fhirUser
+        user_type = user_type,
+        user_id = user_id
         }
         local update_res, update_err = smart_launches:update({ session_id = state }, update_data)
         if update_err then
