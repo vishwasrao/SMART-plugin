@@ -1,69 +1,73 @@
 [![Unix build](https://img.shields.io/github/actions/workflow/status/Kong/kong-plugin/test.yml?branch=master&label=Test&logo=linux)](https://github.com/Kong/kong-plugin/actions/workflows/test.yml)
 [![Luacheck](https://github.com/Kong/kong-plugin/workflows/Lint/badge.svg)](https://github.com/Kong/kong-plugin/actions/workflows/lint.yml)
 
-Kong plugin template
+SMART Plugin - Kong plugin for building SMART on FHIR applications
 ====================
 
-This repository contains a very simple Kong plugin template to get you
-up and running quickly for developing your own plugins.
+Building real-world clinical applications is challenging. There are several factors to consider, such as integrations, complexity of clinical workflows, compliance and privacy, interoperability, and more. Developing these clinical applications can be both complex and time-consuming. This SMART plugin will help in building SMART on FHIR applications faster, addressing these challenges.
 
-This template was designed to work with the
-[`kong-pongo`](https://github.com/Kong/kong-pongo) and
-[`kong-vagrant`](https://github.com/Kong/kong-vagrant) development environments.
+### Key Features
+This plugin provides three routes: two for the SMART on FHIR flow and one for getting clinical data from an EHR (Electronic Health Record) FHIR server:
+- **applaunch:** This route helps in launching a SMART on FHIR application.
+- **authcallback:** During the SMART on FHIR app launch, this route handles the callback flow.
+- **clinicaldata:** This route provides the clinical data needed for the application from the FHIR server.
 
-Please check out those repos `README` files for usage instructions. For a complete
-walkthrough check [this blogpost on the Kong website](https://konghq.com/blog/custom-lua-plugin-kong-gateway).
+Using this plugin, applications can focus on the business/clinical use case, while the SMART plugin provides all the necessary building blocks and handles the complexities. This enables faster development of innovative clinical applications to solve real clinical problems.
 
+## Table of contents
 
-Naming and versioning conventions
-=================================
+- [Configuration](#configuration)
+- [Examples](#examples)
+- [Future Improvements](#future-improvements)
+- [Demo Recording](#demo-recording)
 
-There are a number "named" components and related versions. These are the conventions:
+## Configuration
 
-* *Kong plugin name*: This is the name of the plugin as it is shown in the Kong
-  Manager GUI, and the name used in the file system. A plugin named `my-cool-plugin`
-  would have a `handler.lua` file at `./kong/plugins/my-cool-plugin/handler.lua`.
+This plugin uses two database tables:
 
-* *Kong plugin version*: This is the version of the plugin code, expressed in
-  `x.y.z` format (using Semantic Versioning is recommended). This version should
-  be set in the `handler.lua` file as the `VERSION` property on the plugin table.
+- **smart_apps:**: This table stores data and configuration for your SMART on FHIR applications. It contains details for each application.
 
-* *LuaRocks package name*: This is the name used in the LuaRocks eco system.
-  By convention this is `kong-plugin-[KongPluginName]`. This name is used
-  for the `rockspec` file, both in the filename as well as in the contents
-  (LuaRocks requires that they match).
+- **smart_launches:**: This table stores data for each SMART on FHIR launch.
 
-* *LuaRocks package version*: This is the version of the package, and by convention
-  it should be identical to the *Kong plugin version*. As with the *LuaRocks package
-  name* the version is used in the `rockspec` file, both in the filename as well
-  as in the contents (LuaRocks requires that they match).
+## Steps to Configure the Plugin
 
-* *LuaRocks rockspec revision*: This is the revision of the rockspec, and it only
-  changes if the rockspec is updated. So when the source code remains the same,
-  but build instructions change for example. When there is a new *LuaRocks package
-  version* the *LuaRocks rockspec revision* is reset to `1`. As with the *LuaRocks
-  package name* the revision is used in the `rockspec` file, both in the filename
-  as well as in the contents (LuaRocks requires that they match).
+- **Register your Application with the EHR (Electronic Health Record) System:**:
+Obtain the `client_id` and `client_secret` by registering your application with your EHR.
 
-* *LuaRocks rockspec name*: this is the filename of the rockspec. This is the file
-  that contains the meta-data and build instructions for the LuaRocks package.
-  The filename is `[package name]-[package version]-[package revision].rockspec`.
+- **Insert a Record into the `smart_apps` Table:**:
+Use the following SQL command to insert a record into the `smart_apps` table:
+```
+INSERT INTO smart_apps (app_name, issuer, app_launch_url, app_redirect_url, "scope", client_id, client_secret, created_at, updated_at) 
+VALUES ('<AppName>', '<FHIRServerURL>', '<AppLaunchUrl>', 'http://localhost:8000/authcallback', 'launch profile openid fhirUser online_access patient/*.*', '<ClientId>', '<ClientSecret>', timezone('UTC'::text, 'now'::text::timestamp(0) with time zone), timezone('UTC'::text, 'now'::text::timestamp(0) with time zone));
 
-Example
--------
+```
+Here, `http://localhost:8000/authcallback` is the Kong route for the `authcallback`.
 
-* *Kong plugin name*: `my-cool-plugin`
+- **Create a Service Called `smart_service`**:
+Define a new service in Kong named smart_service.
 
-* *Kong plugin version*: `1.4.2` (set in the `VERSION` field inside `handler.lua`)
+- **Add Routes for the `smart_service`**:
+Create the following three routes for the smart_service:
 
-This results in:
+- `launch_route` with the path `/launch`
+- `authcallback` with the path `/authcallback`
+- `clinicaldata` with the path `/clinicaldata`
 
-* *LuaRocks package name*: `kong-plugin-my-cool-plugin`
+- **Enable the SMART Plugin for `smart_service`**:
+Enable the SMART plugin for the `smart_service` to activate its functionality.
 
-* *LuaRocks package version*: `1.4.2`
+**Kong Admin API:**
+```
+curl -X POST http://localhost:8001/services/{serviceName|Id}/plugins \
+    --data "name=smart_plugin"
+```
 
-* *LuaRocks rockspec revision*: `1`
+## Future Improvements
+Here are some future improvements planned for the plugin:
 
-* *rockspec file*: `kong-plugin-my-cool-plugin-1.4.2-1.rockspec`
+- Use of Caching for Storing Session Details: Instead of using a database to store session details, we plan to implement caching mechanisms for better performance and scalability.
 
-* File *`handler.lua`* is located at: `./kong/plugins/my-cool-plugin/handler.lua` (and similar for the other plugin files)
+## Demo Recording
+
+[Click here to watch demo recording.](https://www.loom.com/share/e02d0ce9d06a45d1b2b42d9231c79bfa?sid=a462b394-9ef7-4132-8112-af81a79582d0)
+
