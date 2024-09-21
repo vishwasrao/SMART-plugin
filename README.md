@@ -63,8 +63,3 @@ curl -X POST http://localhost:8001/services/{serviceName|Id}/plugins \
 Here are some future improvements planned for the plugin:
 
 - Use of Caching for Storing Session Details: Instead of using a database to store session details, we plan to implement caching mechanisms for better performance and scalability.
-
-## Demo Recording
-
-[Click here to watch demo recording.](https://www.loom.com/share/e02d0ce9d06a45d1b2b42d9231c79bfa?sid=a462b394-9ef7-4132-8112-af81a79582d0)
-
